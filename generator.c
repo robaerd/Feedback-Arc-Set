@@ -1,6 +1,18 @@
-#include "supervisor.h"
-#include <time.h>
+//#include "supervisor.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <signal.h>
+#include <limits.h>
+#include <errno.h>
+#include <ctype.h>
+#include <sys/mman.h>
+#include <fcntl.h>
+#include <sys/types.h>
+#include <semaphore.h>
 
+#include <time.h>
 
 void swap(int *firstNum , int *secondNum)
 {
@@ -13,26 +25,16 @@ void swap(int *firstNum , int *secondNum)
 void randperm (int n, int *vertices)
 {
   int i;
-  for(i = 0; i < n; i++){
-	//printf("i: %d\n", i);
+  for(i = 0; i < n; i++)
 	vertices[i] = i;
-	}
-  srand(time(0));
-  srandom(time(0));
-  //  srandom(time(1));// initializes rand function
-  //randomize();
-  for(i = n-1; i >= 0; i--) {
+	
 
-	//	srand(time(0));
-	//	int r = srandom(i+1);// % (i+1);//rand() % (i+1);
-	//	srandom(i+i);
-	//seed48(0);
-	int r = random() % (i+1);//lrand48() % (i+1);
-	printf("i: %d, r: %d\n", i, r);
-	//if (r == i) continue;
+  for(i = n-1; i >= 0; i--) {
+	int r = rand() % (i+1);
+	//printf("i: %d, r: %d\n", i, r);
+	if (r == i) continue;
    swap(&vertices[i], &vertices[r]);
   }
-  //swap(&vertices[0], &vertices[5]);
 }
 
 void extractVertFromEdge(char *edge, int *u, int *v)
@@ -84,6 +86,7 @@ int generateSolution(int *vertices, int verticeAmount, char **edges, int edgeAmo
   return k; // returns size of solution
 }
 
+
 //circular buffer
 #define BUF_LEN 8
 int *buf; // points to shared memory mapped with mmap(2)
@@ -113,6 +116,11 @@ int main(int argc, char ** argv)
 	  break;
 	}
 
+    //set time seed for random number generator
+  struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    // using nano-seconds instead of seconds
+    srand((time_t)ts.tv_nsec);
 
   int optI = optind;
   edgeAmount = argc - optI;
