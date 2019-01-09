@@ -42,14 +42,6 @@ void extractEdgeFromString(char *edgeStr, edge iniEdges, int *vertexAmount)
 	*vertexAmount = u;
 }
 
-/*
-void extractVertFromEdge(char *edge, int *u, int *v)
-{
-  char *ptr;
-  *u = strtol(edge, &ptr, 10);
-  *v = strtol(ptr+1, NULL, 10);
-}
-*/
 
 int validEdge(edge Edge, unsigned int *vertices, int verticeAmount)
 {
@@ -68,6 +60,7 @@ int generateSolution(unsigned int *vertices, int verticeAmount, edge *edges, int
   int k = 0;
   int i;
   for(i = 0; i < edgeAmount; i++){
+	if(k > MAX_SOL_EDGES) return -1;
     if(validEdge(edges[i], vertices, verticeAmount)){
 	  // strncat(solution, edges[i], 3);
 	  //strncat(solution, " ", 1);

@@ -1,20 +1,6 @@
 #include "generator.h"
 //#include "circularBuffer.h"
 
-/*
-int getAmountVertices (char **edges, int amountEdges)
-{
-  int max = 0;
-  int i;
-  int u,v;
-  for(i = 0; i < amountEdges; i++){
-	extractVertFromEdge(edges[i], &u, &v);
-	if(u > max) max = u;
-	if(v > max) max = v;
-  }
-  return max+1;
-}
-*/
 
 void printEdges(edge *Edges, int edgeAmount){
   int i;
@@ -46,7 +32,7 @@ int main(int argc, char ** argv)
 	default:
 	  break;
 	}
-
+  
   int shmfd = shm_open(SHM_NAME, O_RDWR, 0600);
   if (shmfd == -1){
 	fprintf(stderr, "ERROR int shm open.\n");
@@ -64,7 +50,6 @@ int main(int argc, char ** argv)
   }
 
   buf = myshm->data;
- 
   //set time seed for random number generator
   struct timespec ts;
   clock_gettime(CLOCK_MONOTONIC, &ts);
@@ -99,13 +84,15 @@ int main(int argc, char ** argv)
   //test
   //  char *solution = (char*) (malloc(sizeof(char) * 8*3));
   //  memset(solution, '\0', sizeof(char) * 8*3);
-  int solutionSize = generateSolution(vertices, vertexAmount, initEdges, edgeAmount, solution.edges);
-  int t;
-  //for(t = 0; t < solutionSize; t++)
-  int z;
-  //for(z = 0; z < vertexAmount; z++) printf("%d,", vertices[z]);
-  //printf("solution: %s\n", solution);
-  printEdges(solution.edges, solutionSize);
+  int solutionSize;
+
+  while(myshm->state){
+  solutionSize = generateSolution(vertices, vertexAmount, initEdges, edgeAmount, solution.edges);
+  if(solutionSize == -1) continue; // a solution with more than 8 edges was found
+  circ_buf_write(solution);
+  }
+
+  //printEdges(solution.edges, solutionSize);
 
 
   // unmap shared memory:

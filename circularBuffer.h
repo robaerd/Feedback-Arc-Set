@@ -1,4 +1,4 @@
-#include "supervisor.h"
+#include <semaphore.h>
 
 #define SHM_NAME "/11708475-shm"
 #define MAX_DATA (50)
@@ -11,6 +11,7 @@ typedef struct edge{
 
 typedef struct edgeSol{
   edge edges[MAX_SOL_EDGES];
+  unsigned int amount;
 } edges;
 
 //shared mem

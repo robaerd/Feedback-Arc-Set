@@ -1,5 +1,14 @@
 #include "supervisor.h"
-#include "circularBuffer.h"
+//#include "circularBuffer.h"
+
+void printEdges(edge *Edges, int edgeAmount){
+  int i;
+  printf("Solution with %d edges: ", edgeAmount);
+  for (i = 0; i < edgeAmount; i++){
+	printf("%ud-%ud ", Edges[i].u, Edges[i].v);
+  }
+  printf("\n");
+}
 
 
 int read_pos = 0;
@@ -46,9 +55,9 @@ int main(int argc, char **argv)
 			   MAP_SHARED, shmfd, 0);
 
   if (myshm == MAP_FAILED) {
-	fprintf(stderr, "error: shm map failed");
+	fprintf(stderr, "error: shm map failed\n");
 	exit(EXIT_FAILURE);
-	}
+  }
   //just a test fix
   //init buf with 0-0 edges
   buf = myshm->data;
@@ -61,12 +70,41 @@ int main(int argc, char **argv)
 	}
   }
 
+  //initialize myshm amount to 9 (can only hold 8 so any value over 9 would be ok)
+  myshm->edgeAmount = 9;
+  //initialize state - 1 equals running
+  myshm->state = 1;
+
+  //signal handling - SIGINT SIGTERM
+  struct sigaction sa;
+  memset(&sa, 0, sizeof(sa));
+  sa.sa_handler = handle_signal;
+  sigaction(SIGINT, &sa, NULL);
+  sigaction(SIGTERM, &sa, NULL);
+
+  while(!quit){
+	edges temp;
+	temp = circ_buf_read();
+	if(temp.amount == 0){
+	  myshm->edgeAmount = temp.amount;
+	  printf("The graph is acyclic!\n");
+	  //now terminate supervisor and all other generators
+	  myshm->state = 0;
+	  break;
+	} else if(temp.amount < myshm->edgeAmount){
+	  myshm->edgeAmount = temp.amount;
+	  printEdges(temp.edges, temp.amount);
+	  //now terminate supervisor and all other generators
+	  break;
+	}
+  }
+
   //  edges test = circ_buf_read();
 
 
   // unmap shared memory:
   if (munmap(myshm, sizeof(*myshm)) == -1){
-		fprintf(stderr, "ERROR in munmap\n");
+	fprintf(stderr, "ERROR in munmap\n");
 	exit(EXIT_FAILURE);
 	// error
   }
@@ -75,7 +113,7 @@ int main(int argc, char **argv)
 	fprintf(stderr, "ERROR closing shmfd\n");
 	exit(EXIT_FAILURE);
   }
- 
+
   // remove shared memory object:
   if (shm_unlink(SHM_NAME) == -1){
 	fprintf(stderr, "ERROR int unlink\n");
