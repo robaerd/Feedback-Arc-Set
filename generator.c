@@ -1,49 +1,7 @@
-//#include "supervisor.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <signal.h>
-#include <limits.h>
-#include <errno.h>
-#include <ctype.h>
-#include <sys/mman.h>
-#include <fcntl.h>
-#include <sys/types.h>
-#include <semaphore.h>
+#include "generator.h"
+//#include "circularBuffer.h"
 
-#include <time.h>
-
-void swap(int *firstNum , int *secondNum)
-{
-  int temp = *firstNum;
-  *firstNum = *secondNum;
-  *secondNum = temp;
-
-}
-
-void randperm (int n, int *vertices)
-{
-  int i;
-  for(i = 0; i < n; i++)
-	vertices[i] = i;
-	
-
-  for(i = n-1; i >= 0; i--) {
-	int r = rand() % (i+1);
-	//printf("i: %d, r: %d\n", i, r);
-	if (r == i) continue;
-   swap(&vertices[i], &vertices[r]);
-  }
-}
-
-void extractVertFromEdge(char *edge, int *u, int *v)
-{
-  char *ptr;
-  *u = strtol(edge, &ptr, 10);
-  *v = strtol(ptr+1, NULL, 10);
-}
-
+/*
 int getAmountVertices (char **edges, int amountEdges)
 {
   int max = 0;
@@ -56,48 +14,20 @@ int getAmountVertices (char **edges, int amountEdges)
   }
   return max+1;
 }
+*/
 
-int validEdge(char *edge, int *vertices, int verticeAmount)
-{
-  //extract vertices from edge
-  int u,v;
-  extractVertFromEdge(edge, &u, &v);
-  //printf("edge:%s\t u:%d v:%d\n", edge,u,v);
+void printEdges(edge *Edges, int edgeAmount){
   int i;
-  for(i = 0; i < verticeAmount; i++){
-	if (*(vertices + i) == v) return 1;
-	else if (*(vertices + i) == u) return 0;
-  }
-  //bottom should not be reached
-  fprintf(stderr, "vertice not found in vertice array!\n");
-  exit(EXIT_FAILURE);
+  for (i = 0; i < edgeAmount; i++){
+	printf("%ud-%ud\n", Edges[i].u, Edges[i].v);
+	}
 }
-
-int generateSolution(int *vertices, int verticeAmount, char **edges, int edgeAmount, char *solution)
-{
-  int k = 0;
-  int i;
-  for(i = 0; i < edgeAmount; i++){
-    if(validEdge(edges[i], vertices, verticeAmount)){
-	  strncat(solution, edges[i], 3);
-	  strncat(solution, " ", 1);
-	  }
-  }
-  return k; // returns size of solution
-}
-
-
-//circular buffer
-#define BUF_LEN 8
-int *buf; // points to shared memory mapped with mmap(2)
-sem_t *free_sem, // tracks free space, initialized to BUF_LEN
-  *used_sem; // tracks used space, initialized to 0
 
 int write_pos = 0;
-void circ_buf_write(int val) {
-sem_wait(free_sem); // writing requires free space
-buf[write_pos] = val;
-sem_post(used_sem); // space is used by written data write_pos = (write_pos + 1) % BUF_LEN;
+void circ_buf_write(edges val) {
+  sem_wait(free_sem); // writing requires free space
+  buf[write_pos] = val;
+  sem_post(used_sem); // space is used by written data write_pos = (write_pos + 1) % BUF_LEN;
 }
 
 
@@ -105,7 +35,8 @@ int main(int argc, char ** argv)
 {
   int c;
   int edgeAmount;
-  int verticeAmount;
+  int vertexAmount;
+  edges solution;
 
   while((c = getopt(argc,argv,"")) != -1)
 	switch(c) {
@@ -116,41 +47,77 @@ int main(int argc, char ** argv)
 	  break;
 	}
 
-    //set time seed for random number generator
+  int shmfd = shm_open(SHM_NAME, O_RDWR, 0600);
+  if (shmfd == -1){
+	fprintf(stderr, "ERROR int shm open.\n");
+	exit(EXIT_FAILURE);
+	//error handling
+  }
+
+  struct myshm *myshm;
+  myshm = mmap(NULL, sizeof(*myshm), PROT_READ | PROT_WRITE, // need write to initialize all edges
+			   MAP_SHARED, shmfd, 0);
+
+  if (myshm == MAP_FAILED) {
+	fprintf(stderr, "error: shm map failed");
+	exit(EXIT_FAILURE);
+  }
+
+  buf = myshm->data;
+ 
+  //set time seed for random number generator
   struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    // using nano-seconds instead of seconds
-    srand((time_t)ts.tv_nsec);
+  clock_gettime(CLOCK_MONOTONIC, &ts);
+  // using nano-seconds instead of seconds
+  srand((time_t)ts.tv_nsec);
 
   int optI = optind;
   edgeAmount = argc - optI;
-  char *edges[edgeAmount];
+  //char *edges[edgeAmount];
+  edge initEdges[edgeAmount];
   if(optI < argc){
 	int i;
 	for (i = 0; i < argc-optI; i++){
-	  edges[i] = *(argv + optI + i);
+	  //check if valid; better check inside extractEdge..()
+	  extractEdgeFromString( *(argv + optI + i), initEdges[i], &vertexAmount);
+	  //	  edges[i] = *(argv + optI + i);
 	  //problem: zahlen groesser 9 werden nicht gehandlet!
 	  /* if (*(edges[i] +1) != '-' || !isdigit(*(edges[i])) || !isdigit(*(edges[i] + 2))){
-		fprintf(stderr,"Wrong edge pattern: %s. Should be: u-v", edges[i]);
-		exit(EXIT_FAILURE);
-		}*/ 
+		 fprintf(stderr,"Wrong edge pattern: %s. Should be: u-v", edges[i]);
+		 exit(EXIT_FAILURE);
+		 }*/
 	}
   }else {
 	fprintf(stderr, "Invalid pattern!\n");
 	exit(EXIT_FAILURE);
   }
-  verticeAmount = getAmountVertices(edges, edgeAmount);
-  int vertices[verticeAmount];
-  printf("verticeamount: %d\n", verticeAmount);
-  randperm(verticeAmount, vertices);
+  //verticeAmount = getAmountVertices(edges, edgeAmount);
+  unsigned int vertices[vertexAmount];
+  printf("verticeamount: %d\n", vertexAmount);
+  randperm(vertexAmount, vertices);
 
   //test
-  char *solution = (char*) (malloc(sizeof(char) * 8*3));
-  memset(solution, '\0', sizeof(char) * 8*3);
-  int solutionSize = generateSolution(vertices, verticeAmount, edges,edgeAmount, solution);
+  //  char *solution = (char*) (malloc(sizeof(char) * 8*3));
+  //  memset(solution, '\0', sizeof(char) * 8*3);
+  int solutionSize = generateSolution(vertices, vertexAmount, initEdges, edgeAmount, solution.edges);
   int t;
   //for(t = 0; t < solutionSize; t++)
   int z;
-  for(z = 0; z < verticeAmount; z++) printf("%d,", vertices[z]);
-  printf("solution: %s\n", solution);
+  //for(z = 0; z < vertexAmount; z++) printf("%d,", vertices[z]);
+  //printf("solution: %s\n", solution);
+  printEdges(solution.edges, solutionSize);
+
+
+  // unmap shared memory:
+  if (munmap(myshm, sizeof(*myshm)) == -1){
+	fprintf(stderr, "ERROR in munmap\n");
+	exit(EXIT_FAILURE);
+	// error
+  }
+
+  //close(shm)
+  if (close(shmfd) == -1){
+	fprintf(stderr, "ERROR closing shmfd\n");
+	exit(EXIT_FAILURE);
+  }
 }

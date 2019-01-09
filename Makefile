@@ -4,10 +4,10 @@
 CC = gcc
 DEFS = -D_BSD_SOURCE -D_SVID_SOURCE -D_POSIX_C_SOURCE=200809L
 CFLAGS = -Wall -g -std=c99 -pedantic $(DEFS)
-LDFLAGS = -lrt -lpthread
+LDFLAGS =  #-lrt -lpthread
 
 OBJECTSSUPERVISOR = supervisor.o
-OBJECTSGENERATOR = generator.o
+OBJECTSGENERATOR =  generator.o topologicalSol.o
 
 .PHONY: all clean
 all: supervisor generator
@@ -21,8 +21,9 @@ generator: $(OBJECTSGENERATOR)
 %.o: %.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-supervisor.o: supervisor.c supervisor.h
-generator.o: generator.c generator.h
+supervisor.o: supervisor.c supervisor.h circularBuffer.h
+generator.o: generator.c generator.h circularBuffer.h
+topologicalSol.o: topologicalSol.c generator.h circularBuffer.h
 
 clean:
 	rm -rf *.o supervisor generator
