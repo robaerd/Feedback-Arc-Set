@@ -56,3 +56,6 @@ dkms.conf
 
 # files surrounded by sharps
 \#*#
+
+# strange exec ressource being created on tilab server
+.nfs*
