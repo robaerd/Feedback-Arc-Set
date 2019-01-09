@@ -50,3 +50,9 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+
+# documents
+*.pdf
+
+# files surrounded by sharps
+\#*#

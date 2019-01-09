@@ -6,4 +6,7 @@
 #include <limits.h>
 #include <errno.h>
 #include <ctype.h>
-
+#include <sys/mman.h>
+#include <fcntl.h>
+#include <sys/types.h>
+#include <semaphore.h>
