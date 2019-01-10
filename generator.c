@@ -21,7 +21,7 @@ int main(int argc, char ** argv)
 {
   int c;
   int edgeAmount;
-  int vertexAmount;
+  unsigned int vertexAmount = 0;
   edges solution;
 
   while((c = getopt(argc,argv,"")) != -1)
@@ -64,7 +64,7 @@ int main(int argc, char ** argv)
 	int i;
 	for (i = 0; i < argc-optI; i++){
 	  //check if valid; better check inside extractEdge..()
-	  extractEdgeFromString( *(argv + optI + i), initEdges[i], &vertexAmount);
+	  extractEdgeFromString( *(argv + optI + i), &initEdges[i], &vertexAmount);
 	  //	  edges[i] = *(argv + optI + i);
 	  //problem: zahlen groesser 9 werden nicht gehandlet!
 	  /* if (*(edges[i] +1) != '-' || !isdigit(*(edges[i])) || !isdigit(*(edges[i] + 2))){
@@ -72,23 +72,25 @@ int main(int argc, char ** argv)
 		 exit(EXIT_FAILURE);
 		 }*/
 	}
+	vertexAmount++; //because vertices start at 0
   }else {
 	fprintf(stderr, "Invalid pattern!\n");
 	exit(EXIT_FAILURE);
   }
   //verticeAmount = getAmountVertices(edges, edgeAmount);
   unsigned int vertices[vertexAmount];
-  printf("verticeamount: %d\n", vertexAmount);
+  //  memset(vertices, 0, sizeof(unsigned int)*vertexAmount);
+  //printf("verticeamount: %d\n", vertexAmount);
   randperm(vertexAmount, vertices);
 
-  //test
-  //  char *solution = (char*) (malloc(sizeof(char) * 8*3));
-  //  memset(solution, '\0', sizeof(char) * 8*3);
-  int solutionSize;
+  used_sem = sem_open("11708475-used_sem", 0);
+  free_sem = sem_open("11708475-free_sem", 0);
 
+ unsigned int solutionSize;
   while(myshm->state){
   solutionSize = generateSolution(vertices, vertexAmount, initEdges, edgeAmount, solution.edges);
-  if(solutionSize == -1) continue; // a solution with more than 8 edges was found
+  if(solutionSize == 9) continue; // a solution with more than 8 edges was found
+  solution.amount=solutionSize;
   circ_buf_write(solution);
   }
 
@@ -106,5 +108,17 @@ int main(int argc, char ** argv)
   if (close(shmfd) == -1){
 	fprintf(stderr, "ERROR closing shmfd\n");
 	exit(EXIT_FAILURE);
+  }
+
+    //closing semaphores
+  if (sem_close(free_sem) == -1){
+	fprintf(stderr, "ERROR closing free_sem\n");
+	exit(EXIT_FAILURE);
+	//errno
+  }
+  if (sem_close(used_sem) == -1){
+	fprintf(stderr, "ERROR closing used_sem\n");
+	exit(EXIT_FAILURE);
+	//errno
   }
 }

@@ -5,7 +5,7 @@ void printEdges(edge *Edges, int edgeAmount){
   int i;
   printf("Solution with %d edges: ", edgeAmount);
   for (i = 0; i < edgeAmount; i++){
-	printf("%ud-%ud ", Edges[i].u, Edges[i].v);
+	printf("%d-%d ", Edges[i].u, Edges[i].v);
   }
   printf("\n");
 }
@@ -16,7 +16,7 @@ edges circ_buf_read() {
   sem_wait(used_sem); // reading requires data (used space)
   edges val;
   val = buf[read_pos];
-  memcpy(&val, &buf[read_pos], sizeof(buf[read_pos]));
+  //memcpy(&val, &buf[read_pos], sizeof(buf[read_pos]));
   read_pos = (read_pos + 1) % MAX_DATA;
   return val;
 }
@@ -82,6 +82,11 @@ int main(int argc, char **argv)
   sigaction(SIGINT, &sa, NULL);
   sigaction(SIGTERM, &sa, NULL);
 
+  //sem_open()
+  free_sem = sem_open(SEM_1, O_CREAT | O_EXCL, 0600, MAX_DATA);
+  used_sem = sem_open(SEM_2, O_CREAT | O_EXCL, 0600, 0);
+
+
   while(!quit){
 	edges temp;
 	temp = circ_buf_read();
@@ -94,8 +99,7 @@ int main(int argc, char **argv)
 	} else if(temp.amount < myshm->edgeAmount){
 	  myshm->edgeAmount = temp.amount;
 	  printEdges(temp.edges, temp.amount);
-	  //now terminate supervisor and all other generators
-	  break;
+	  //now terminate supervisor and all other generator
 	}
   }
 
@@ -120,4 +124,28 @@ int main(int argc, char **argv)
 	exit(EXIT_FAILURE);
 	// error
   }
+
+  //closing semaphores
+  if (sem_close(free_sem) == -1){
+	fprintf(stderr, "ERROR closing free_sem\n");
+	exit(EXIT_FAILURE);
+	//errno
+  }
+  if (sem_close(used_sem) == -1){
+	fprintf(stderr, "ERROR closing used_sem\n");
+	exit(EXIT_FAILURE);
+	//errno
+  }
+  //unlink semaphores
+  if(sem_unlink(SEM_1) == -1){
+	fprintf(stderr, "ERROR unlinking free_sem\n");
+	exit(EXIT_FAILURE);
+	//errno
+  }
+    if(sem_unlink(SEM_2) == -1){
+	fprintf(stderr, "ERROR unlinking used_sem\n");
+	exit(EXIT_FAILURE);
+	//errno
+  }
+
 }

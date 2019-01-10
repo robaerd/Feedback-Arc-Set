@@ -3,6 +3,9 @@
 #define SHM_NAME "/11708475-shm"
 #define MAX_DATA (50)
 #define MAX_SOL_EDGES (8)
+//semaphore names
+#define SEM_1 "/11708475-free_sem"
+#define SEM_2 "/11708475-used_sem"
 // struct array which contains one integer with u and one with v
 typedef struct edge{
   unsigned int v;

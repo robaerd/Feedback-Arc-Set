@@ -16,13 +16,13 @@
 
 void swap(unsigned int * ,unsigned int *);
 
-void randperm (int, unsigned int *);
+void randperm (unsigned int, unsigned int *);
 
-void extractEdgeFromString(char *, edge, int *);
+void extractEdgeFromString(char *, edge *, unsigned int *);
 
 //void extractVertFromEdge(char *, int *, int *);
 
-int validEdge(edge, unsigned int *, int);
+int validEdge(edge, unsigned int *, unsigned int);
 
-int generateSolution(unsigned int *, int, edge *, int, edge[]);
+unsigned int generateSolution(unsigned int *, unsigned int, edge *, int, edge[]);
 
