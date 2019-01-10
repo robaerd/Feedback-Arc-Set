@@ -82,7 +82,7 @@ int main(int argc, char ** argv)
   unsigned int vertices[vertexAmount];
   //  memset(vertices, 0, sizeof(unsigned int)*vertexAmount);
   //printf("verticeamount: %d\n", vertexAmount);
-  
+
 
   used_sem = sem_open("11708475-used_sem", 0);
   free_sem = sem_open("11708475-free_sem", 0);

@@ -15,10 +15,8 @@ void randperm (unsigned int n, unsigned int *vertices)
   for(i = 0; i < n; i++)
 	vertices[i] = i;
 
-
   for(i = n; i > 0; i--) {
 	unsigned int r = rand() % (i);
-	//printf("i: %d, r: %d\n", i, r);
 	if (r == (i-1)) continue;
    swap(&vertices[i-1], &vertices[r]);
   }
@@ -30,8 +28,8 @@ void extractEdgeFromString(char *edgeStr, edge *iniEdges, unsigned int *vertexAm
   //Edge in string format to integer
   char *ptr;
   unsigned u,v;
-  u = strtoul(edgeStr, &ptr, 10);
-  v = strtoul(ptr+1, NULL, 10);
+  v = strtoul(edgeStr, &ptr, 10);
+  u = strtoul(ptr+1, NULL, 10);
   //integer to edge struct
   iniEdges->u = u;
   iniEdges->v = v;
@@ -39,7 +37,7 @@ void extractEdgeFromString(char *edgeStr, edge *iniEdges, unsigned int *vertexAm
   if(u>v && u > *vertexAmount)
 	*vertexAmount = u;
   else if (v>u && v > *vertexAmount)
-	*vertexAmount = u;
+	*vertexAmount = v;
 }
 
 
@@ -61,6 +59,7 @@ unsigned int generateSolution(unsigned int *vertices, unsigned int verticeAmount
 {
   unsigned int k = 0;
   int i;
+  //fprintf(stderr,"verticeAmount: %d\n", verticeAmount);
   for(i = 0; i < edgeAmount; i++){
 	if(k > MAX_SOL_EDGES) return 9;
     if(validEdge(edges[i], vertices, verticeAmount)){
@@ -70,8 +69,8 @@ unsigned int generateSolution(unsigned int *vertices, unsigned int verticeAmount
 	  k++;
 	  }
   }
-  unsigned int l;
-  for(l = 0; l < k; l++) printf("%d-%d", solution[l].v,solution[l].u);
+  //unsigned int l;
+  //for(l = 0; l < k; l++) printf("%d-%d", solution[l].v,solution[l].u);
   return k; // returns size of solution
 }
 
