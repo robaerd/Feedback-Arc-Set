@@ -14,7 +14,7 @@
  */
 typedef struct edge {
   unsigned int v; /** representing vertex indice where an directed edge is going out */
-  unsigned int u; /** correspoinding vertex indice where the directed edge from u is coming in */
+  unsigned int u; /** correspoinding vertex indice where the directed edge from u is coming in */
 } edge;
 
 /**
@@ -33,8 +33,7 @@ struct myshm {
                                  0 if supervisor is about to terminate -> all generator should also terminate */
   unsigned int edgeAmount;   /** amount of edges the most optimal solution found so far consists of  */
   edges data[MAX_DATA];      /** circular edges buffer */
-  int write_pos;             /**  */
-  //int generatorAmount;
+  int write_pos;             /** next free write position in buffer */
 };
 
 //circular buffer
