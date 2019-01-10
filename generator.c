@@ -10,12 +10,12 @@ void printEdges(edge *Edges, int edgeAmount){
   }
 }
 
-int write_pos = 0;
-void circ_buf_write(edges val) {
+//int write_pos = 0;
+int circ_buf_write(edges val, int pos) {
   sem_wait(free_sem); // writing requires free space
-  buf[write_pos] = val;
+  buf[pos] = val;
   sem_post(used_sem); // space is used by written data
-  write_pos = (write_pos + 1) % MAX_DATA;
+  return (pos + 1) % MAX_DATA;
 }
 
 
@@ -45,6 +45,7 @@ int main(int argc, char ** argv)
   if (myshm == MAP_FAILED)  error_errno_exit("cannot map shared memory.");
 
   buf = myshm->data; //let buf point to circular buffer
+  myshm->generatorAmount++;
 
   //set time seed for random number generator
   struct timespec ts;
@@ -64,20 +65,29 @@ int main(int argc, char ** argv)
   }
   //verticeAmount = getAmountVertices(edges, edgeAmount);
   unsigned int vertices[vertexAmount];
-
-  used_sem = sem_open(SEM_2, 0);
-  if(used_sem == SEM_FAILED)  error_errno_exit("Opening semaphore used_sem failed.");
   free_sem = sem_open(SEM_1, 0);
   if(free_sem == SEM_FAILED)  error_errno_exit("Opening semaphore free_sem failed.");
+  used_sem = sem_open(SEM_2, 0);
+  if(used_sem == SEM_FAILED)  error_errno_exit("Opening semaphore used_sem failed.");
+  write_sem = sem_open(SEM_3, 0);
+  if(write_sem == SEM_FAILED)  error_errno_exit("Opening semaphore write_sem failed.");
+  //alive_sem = sem_open(SEM_4, 0);
+  //if(alive_sem == SEM_FAILED)  error_errno_exit("Opening semaphore alive_sem failed.");
 
   unsigned int solutionSize;
-  while(myshm->state){
+  while(myshm->state == 1){
 	randperm(vertexAmount, vertices);
 	solutionSize = generateSolution(vertices, vertexAmount, initEdges, edgeAmount, solution.edges);
 	if(solutionSize == 9) continue; // a solution with more than 8 edges was found
 	solution.amount=solutionSize;
-	circ_buf_write(solution);
+	if(sem_wait(write_sem) == -1) error_errno_exit("waiting for write_sem"); // implement wait error handling with signal errno ==eintr
+	myshm->write_pos = circ_buf_write(solution, myshm->write_pos);
+	if(sem_post(write_sem) == -1) error_errno_exit("incrementing write_sem"); //error handling
   }
+  //alive_sem = sem_open(SEM_4, 0);
+  //if(alive_sem == SEM_FAILED)  error_errno_exit("Opening semaphore alive_sem failed.");
+  //sem_post(alive_sem);  // increment alive
+
 
 
   // unmap shared memory:
@@ -87,4 +97,6 @@ int main(int argc, char ** argv)
   //closing semaphores
   if (sem_close(free_sem) == -1)  error_errno_exit("cannot close free_sem semaphore.");
   if (sem_close(used_sem) == -1)  error_errno_exit("cannot close used_sem semaphore.");
+  if (sem_close(write_sem) == -1)  error_errno_exit("cannot close write_sem semaphore.");
+  //if (sem_close(alive_sem) == -1)  error_errno_exit("cannot close alive_sem semaphore.");
 }

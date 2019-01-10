@@ -60,3 +60,6 @@ dkms.conf
 
 # strange exec ressource being created on tilab server
 .nfs*
+
+# modified files
+*~

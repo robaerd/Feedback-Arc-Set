@@ -13,7 +13,7 @@ void printEdges(edge *Edges, int edgeAmount){
 
 int read_pos = 0;
 edges circ_buf_read() {
-  sem_wait(used_sem); // reading requires data (used space)
+  if(sem_wait(used_sem) == -1) error_errno_exit("cannot wait used_sem."); // reading requires data (used space)
   edges val;
   val = buf[read_pos];
   sem_post(free_sem); // reading frees up space
@@ -60,6 +60,10 @@ int main(int argc, char **argv)
   myshm->edgeAmount = 9;
   //initialize state -> 1 equals running
   myshm->state = 1;
+  //initially sets amount of generators in shm to 0
+  myshm->generatorAmount = 0;
+  //write position initialize for all generators to 0;
+  myshm->write_pos = 0;
 
   //signal handling - SIGINT SIGTERM
   struct sigaction sa;
@@ -68,11 +72,15 @@ int main(int argc, char **argv)
   sigaction(SIGINT, &sa, NULL);
   sigaction(SIGTERM, &sa, NULL);
 
-  //sem_open()
+  //sem_open - free, used
   free_sem = sem_open(SEM_1, O_CREAT | O_EXCL, 0600, MAX_DATA);
   if(free_sem == SEM_FAILED)  error_errno_exit("Opening semaphore free_sem failed.");
   used_sem = sem_open(SEM_2, O_CREAT | O_EXCL, 0600, 0);
   if(used_sem == SEM_FAILED)  error_errno_exit("Opening semaphore used_sem failed.");
+  //sem_open - write mutex
+  write_sem = sem_open(SEM_3, O_CREAT | O_EXCL, 0600, 1);
+  if(write_sem == SEM_FAILED)  error_errno_exit("Opening semaphore write_sem failed.");
+  //sem_open - alive
 
 
   while(!quit){
@@ -82,13 +90,23 @@ int main(int argc, char **argv)
 	  myshm->edgeAmount = temp.amount;
 	  printf("The graph is acyclic!\n");
 	  //now terminate supervisor and all other generators
-	  myshm->state = 0;
+	  //myshm->state = 0;
 	  break;
 	} else if(temp.amount < myshm->edgeAmount){
 	  myshm->edgeAmount = temp.amount;
 	  printEdges(temp.edges, temp.amount);
 	}
   }
+
+  //int generatorDef = myshm->generatorAmount * (-1);
+  //  alive_sem = sem_open(SEM_4, O_CREAT | O_EXCL, 0600, 1);
+  //if(alive_sem == SEM_FAILED)  error_errno_exit("Opening semaphore alive_sem failed.");
+  //  printf("Terminating all generators\n");
+  myshm->state = 0; // setting state variable to 0 so all generators leave while loop
+
+  //wait for all generators to terminate before unmapping shm
+  //if(sem_wait(alive_sem) == -1) error_errno_exit("waiting for alive_sem.");
+  printf("All generators terminated, now terminating supervisor\n");
 
   // unmap shared memory:
   if (munmap(myshm, sizeof(*myshm)) == -1)  error_errno_exit("cannot munmap shared memory.");
@@ -100,8 +118,12 @@ int main(int argc, char **argv)
   //closing semaphores
   if (sem_close(free_sem) == -1)  error_errno_exit("cannot close free_sem semaphore.");
   if (sem_close(used_sem) == -1)  error_errno_exit("cannot close used_sem semaphore.");
+  if (sem_close(write_sem) == -1)  error_errno_exit("cannot close write_sem semaphore.");
+  //  if (sem_close(alive_sem) == -1)  error_errno_exit("cannot close alive_sem semaphore.");
   //unlink semaphores
   if(sem_unlink(SEM_1) == -1)  error_errno_exit("cannot unlink semaphore SEM_1");
   if(sem_unlink(SEM_2) == -1)  error_errno_exit("cannot unlink semaphore SEM_2");
+  if(sem_unlink(SEM_3) == -1)  error_errno_exit("cannot unlink semaphore SEM_3");
+  //if(sem_unlink(SEM_4) == -1)  error_errno_exit("cannot unlink semaphore SEM_4");
 
 }
