@@ -14,13 +14,10 @@
 
 #include "circularBuffer.h"
 
-void swap(unsigned int * ,unsigned int *);
 
 void randperm (unsigned int, unsigned int *);
 
 void extractEdgeFromString(char *, edge *, unsigned int *);
-
-int validEdge(edge, unsigned int *, unsigned int);
 
 unsigned int generateSolution(unsigned int *, unsigned int, edge *, int, edge[]);
 

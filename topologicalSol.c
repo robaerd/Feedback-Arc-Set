@@ -1,20 +1,14 @@
 #include "generator.h"
 #include "error.h"
 
-void swap(unsigned int *firstNum , unsigned int *secondNum)
-{
-  unsigned int temp = *firstNum;
-  *firstNum = *secondNum;
-  *secondNum = temp;
-}
+
+static void swap(unsigned int * , unsigned int *);
+
+static int validEdge(edge, unsigned int *, unsigned int);
 
 void randperm (unsigned int n, unsigned int *vertices)
 {
-  //initialize vertices in ascending order from 0 to n
   unsigned int i;
-  for(i = 0; i < n; i++)
-	vertices[i] = i;
-
   for(i = n; i > 0; i--) {
 	unsigned int r = rand() % (i);
 	if (r == (i-1)) continue;
@@ -44,6 +38,18 @@ void extractEdgeFromString(char *edgeStr, edge *iniEdges, unsigned int *vertexAm
 	*vertexAmount = v;
 }
 
+unsigned int generateSolution(unsigned int *vertices, unsigned int verticeAmount, edge *edges, int edgeAmount, edge solution[MAX_SOL_EDGES])
+{
+  unsigned int k = 0;
+  int i;
+  for(i = 0; i < edgeAmount; i++){
+	if(k > MAX_SOL_EDGES) return 9;
+    if(validEdge(edges[i], vertices, verticeAmount))
+	  solution[k++] = edges[i];
+  }
+  return k; // returns size of solution
+}
+
 
 int validEdge(edge Edge, unsigned int *vertices, unsigned int verticeAmount)
 {
@@ -57,15 +63,10 @@ int validEdge(edge Edge, unsigned int *vertices, unsigned int verticeAmount)
   exit(EXIT_FAILURE);
 }
 
-unsigned int generateSolution(unsigned int *vertices, unsigned int verticeAmount, edge *edges, int edgeAmount, edge solution[MAX_SOL_EDGES])
-{
-  unsigned int k = 0;
-  int i;
-  for(i = 0; i < edgeAmount; i++){
-	if(k > MAX_SOL_EDGES) return 9;
-    if(validEdge(edges[i], vertices, verticeAmount))
-	  solution[k++] = edges[i];
-  }
-  return k; // returns size of solution
-}
 
+void swap(unsigned int *firstNum , unsigned int *secondNum)
+{
+  unsigned int temp = *firstNum;
+  *firstNum = *secondNum;
+  *secondNum = temp;
+}

@@ -1,53 +1,16 @@
 #include "generator.h"
 #include "error.h"
-//#include "circularBuffer.h"
 
-
-void printEdges(edge *Edges, int edgeAmount){
-  int i;
-  for (i = 0; i < edgeAmount; i++){
-	printf("%ud-%ud\n", Edges[i].u, Edges[i].v);
-  }
-}
-
-//int write_pos = 0;
-int circ_buf_write(edges val, int pos) {
-  sem_wait(free_sem); // writing requires free space
-  buf[pos] = val;
-  sem_post(used_sem); // space is used by written data
-  return (pos + 1) % MAX_DATA;
-}
 
 static int shmfd;
 static struct myshm *myshm;
 
-void allocate_resources(void) {
-  shmfd = shm_open(SHM_NAME, O_RDWR, 0600);
-  if (shmfd == -1)  error_errno_exit("cannot open shared memory.");
+static void allocate_resources(void);
 
-  myshm = mmap(NULL, sizeof(*myshm), PROT_READ | PROT_WRITE, // need write to initialize all edges
-			   MAP_SHARED, shmfd, 0);
+static void free_resources(void);
 
-  if (myshm == MAP_FAILED)  error_errno_exit("cannot map shared memory.");
+static circ_buf_write(edges, int);
 
-  free_sem = sem_open(SEM_1, 0);
-  if(free_sem == SEM_FAILED)  error_errno_exit("Opening semaphore free_sem failed.");
-  used_sem = sem_open(SEM_2, 0);
-  if(used_sem == SEM_FAILED)  error_errno_exit("Opening semaphore used_sem failed.");
-  write_sem = sem_open(SEM_3, 0);
-  if(write_sem == SEM_FAILED)  error_errno_exit("Opening semaphore write_sem failed.");
-}
-
-void free_resources(void) {
-  // unmap shared memory:
-  if (munmap(myshm, sizeof(*myshm)) == -1)  error_errno_exit("cannot munmap shared memory.");
-  //close(shm)
-  if (close(shmfd) == -1)  error_errno_exit("cannot close shared memory.");
-  //closing semaphores
-  if (sem_close(free_sem) == -1)  error_errno_exit("cannot close free_sem semaphore.");
-  if (sem_close(used_sem) == -1)  error_errno_exit("cannot close used_sem semaphore.");
-  if (sem_close(write_sem) == -1)  error_errno_exit("cannot close write_sem semaphore.");
-}
 
 int main(int argc, char ** argv)
 {
@@ -66,6 +29,7 @@ int main(int argc, char ** argv)
 	}
 
   if (atexit(free_resources) != 0) error_exit("atexit: register function free_ressources.");
+
   allocate_resources(); // allocates sem and shm
 
   buf = myshm->data; //let buf point to circular buffer
@@ -87,7 +51,12 @@ int main(int argc, char ** argv)
 	error_exit("invalid pattern.");
   }
 
+  //initialize vertices in ascending order from 0 to vertexAmount
   unsigned int vertices[vertexAmount];
+  unsigned int i;
+  for(i = 0; i < vertexAmount; i++)
+	vertices[i] = i;
+
   unsigned int solutionSize;
 
   while(myshm->state == 1){
@@ -105,4 +74,43 @@ int main(int argc, char ** argv)
   }
 
   exit(EXIT_SUCCESS);
+}
+
+void allocate_resources(void)
+{
+  shmfd = shm_open(SHM_NAME, O_RDWR, 0600);
+  if (shmfd == -1)  error_errno_exit("cannot open shared memory.");
+
+  myshm = mmap(NULL, sizeof(*myshm), PROT_READ | PROT_WRITE, // need write to initialize all edges
+			   MAP_SHARED, shmfd, 0);
+
+  if (myshm == MAP_FAILED)  error_errno_exit("cannot map shared memory.");
+
+  free_sem = sem_open(SEM_1, 0);
+  if(free_sem == SEM_FAILED)  error_errno_exit("Opening semaphore free_sem failed.");
+  used_sem = sem_open(SEM_2, 0);
+  if(used_sem == SEM_FAILED)  error_errno_exit("Opening semaphore used_sem failed.");
+  write_sem = sem_open(SEM_3, 0);
+  if(write_sem == SEM_FAILED)  error_errno_exit("Opening semaphore write_sem failed.");
+}
+
+void free_resources(void)
+{
+  // unmap shared memory:
+  if (munmap(myshm, sizeof(*myshm)) == -1)  error_errno_exit("cannot munmap shared memory.");
+  //close(shm)
+  if (close(shmfd) == -1)  error_errno_exit("cannot close shared memory.");
+  //closing semaphores
+  if (sem_close(free_sem) == -1)  error_errno_exit("cannot close free_sem semaphore.");
+  if (sem_close(used_sem) == -1)  error_errno_exit("cannot close used_sem semaphore.");
+  if (sem_close(write_sem) == -1)  error_errno_exit("cannot close write_sem semaphore.");
+}
+
+//int write_pos = 0;
+int circ_buf_write(edges val, int pos)
+{
+  sem_wait(free_sem); // writing requires free space
+  buf[pos] = val;
+  sem_post(used_sem); // space is used by written data
+  return (pos + 1) % MAX_DATA;
 }
