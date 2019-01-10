@@ -20,8 +20,6 @@ void randperm (unsigned int, unsigned int *);
 
 void extractEdgeFromString(char *, edge *, unsigned int *);
 
-//void extractVertFromEdge(char *, int *, int *);
-
 int validEdge(edge, unsigned int *, unsigned int);
 
 unsigned int generateSolution(unsigned int *, unsigned int, edge *, int, edge[]);

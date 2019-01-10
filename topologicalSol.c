@@ -1,16 +1,16 @@
 #include "generator.h"
-//#include "circularBuffer.h"
+#include "error.h"
 
 void swap(unsigned int *firstNum , unsigned int *secondNum)
 {
   unsigned int temp = *firstNum;
   *firstNum = *secondNum;
   *secondNum = temp;
-
 }
 
 void randperm (unsigned int n, unsigned int *vertices)
 {
+  //initialize vertices in ascending order from 0 to n
   unsigned int i;
   for(i = 0; i < n; i++)
 	vertices[i] = i;
@@ -18,7 +18,7 @@ void randperm (unsigned int n, unsigned int *vertices)
   for(i = n; i > 0; i--) {
 	unsigned int r = rand() % (i);
 	if (r == (i-1)) continue;
-   swap(&vertices[i-1], &vertices[r]);
+    swap(&vertices[i-1], &vertices[r]);
   }
 }
 
@@ -27,9 +27,13 @@ void extractEdgeFromString(char *edgeStr, edge *iniEdges, unsigned int *vertexAm
 {
   //Edge in string format to integer
   char *ptr;
+  char *endPtr;
   unsigned u,v;
+  if(!isdigit(*edgeStr)) error_exit("wrong edge fromat. Format: <digit>-<digit>. digit must be a positive value.");
   v = strtoul(edgeStr, &ptr, 10);
-  u = strtoul(ptr+1, NULL, 10);
+  if(*ptr != '-' || !isdigit(*(ptr+1))) error_exit("wrong edge fromat. Format: <digit>-<digit>. digit must be a positive value.");
+  u = strtoul(ptr+1, &endPtr, 10);
+  if(*endPtr != '\0') error_exit("wrong edge fromat. Format: <digit>-<digit>. digit must be a positive value.");
   //integer to edge struct
   iniEdges->u = u;
   iniEdges->v = v;
@@ -48,10 +52,8 @@ int validEdge(edge Edge, unsigned int *vertices, unsigned int verticeAmount)
 	if (*(vertices + i) == Edge.v) return 1;
 	else if (*(vertices + i) == Edge.u) return 0;
 
-  //bottom should not be reached
-  fprintf(stderr, "verticeAmount:%d\n edges:", verticeAmount);
-  unsigned int j; for(j = 0; j< verticeAmount; j++) fprintf(stderr, "%d-%d ",Edge.v, Edge.u);
-  fprintf(stderr, "\nvertice not found in vertice array!\n");
+  //bottom only reached in case of error
+  error_exit("vertice from edge not part of vertice array.");
   exit(EXIT_FAILURE);
 }
 
@@ -59,18 +61,11 @@ unsigned int generateSolution(unsigned int *vertices, unsigned int verticeAmount
 {
   unsigned int k = 0;
   int i;
-  //fprintf(stderr,"verticeAmount: %d\n", verticeAmount);
   for(i = 0; i < edgeAmount; i++){
 	if(k > MAX_SOL_EDGES) return 9;
-    if(validEdge(edges[i], vertices, verticeAmount)){
-	  // strncat(solution, edges[i], 3);
-	  //strncat(solution, " ", 1);
-	  solution[k] = edges[i];
-	  k++;
-	  }
+    if(validEdge(edges[i], vertices, verticeAmount))
+	  solution[k++] = edges[i];
   }
-  //unsigned int l;
-  //for(l = 0; l < k; l++) printf("%d-%d", solution[l].v,solution[l].u);
   return k; // returns size of solution
 }
 

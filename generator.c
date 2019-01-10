@@ -1,4 +1,5 @@
 #include "generator.h"
+#include "error.h"
 //#include "circularBuffer.h"
 
 
@@ -6,7 +7,7 @@ void printEdges(edge *Edges, int edgeAmount){
   int i;
   for (i = 0; i < edgeAmount; i++){
 	printf("%ud-%ud\n", Edges[i].u, Edges[i].v);
-	}
+  }
 }
 
 int write_pos = 0;
@@ -28,99 +29,62 @@ int main(int argc, char ** argv)
   while((c = getopt(argc,argv,"")) != -1)
 	switch(c) {
 	case '?':
-	  fprintf(stderr,"invalid option. only postitional arguments expected\n");
-	  exit(EXIT_FAILURE);
+	  error_exit("invalid argument provided. only positional arguments allowed");
 	default:
 	  break;
 	}
 
   int shmfd = shm_open(SHM_NAME, O_RDWR, 0600);
-  if (shmfd == -1){
-	fprintf(stderr, "ERROR int shm open.\n");
-	exit(EXIT_FAILURE);
-	//error handling
-  }
+  if (shmfd == -1)  error_errno_exit("cannot open shared memory.");
+
 
   struct myshm *myshm;
   myshm = mmap(NULL, sizeof(*myshm), PROT_READ | PROT_WRITE, // need write to initialize all edges
 			   MAP_SHARED, shmfd, 0);
 
-  if (myshm == MAP_FAILED) {
-	fprintf(stderr, "error: shm map failed");
-	exit(EXIT_FAILURE);
-  }
+  if (myshm == MAP_FAILED)  error_errno_exit("cannot map shared memory.");
 
-  buf = myshm->data;
+  buf = myshm->data; //let buf point to circular buffer
+
   //set time seed for random number generator
   struct timespec ts;
   clock_gettime(CLOCK_MONOTONIC, &ts);
-  // using nano-seconds instead of seconds
-  srand((time_t)ts.tv_nsec);
+  srand((time_t)ts.tv_nsec); // using nano-seconds instead of seconds
 
   int optI = optind;
   edgeAmount = argc - optI;
-  //char *edges[edgeAmount];
   edge initEdges[edgeAmount];
   if(optI < argc){
 	int i;
-	for (i = 0; i < argc-optI; i++){
-	  //check if valid; better check inside extractEdge..()
+	for (i = 0; i < argc-optI; i++)
 	  extractEdgeFromString( *(argv + optI + i), &initEdges[i], &vertexAmount);
-	  //	  edges[i] = *(argv + optI + i);
-	  //problem: zahlen groesser 9 werden nicht gehandlet!
-	  /* if (*(edges[i] +1) != '-' || !isdigit(*(edges[i])) || !isdigit(*(edges[i] + 2))){
-		 fprintf(stderr,"Wrong edge pattern: %s. Should be: u-v", edges[i]);
-		 exit(EXIT_FAILURE);
-		 }*/
-	}
 	vertexAmount++; //because vertices start at 0
   }else {
-	fprintf(stderr, "Invalid pattern!\n");
-	exit(EXIT_FAILURE);
+	error_exit("invalid pattern.");
   }
   //verticeAmount = getAmountVertices(edges, edgeAmount);
   unsigned int vertices[vertexAmount];
-  //  memset(vertices, 0, sizeof(unsigned int)*vertexAmount);
-  //printf("verticeamount: %d\n", vertexAmount);
 
+  used_sem = sem_open(SEM_2, 0);
+  if(used_sem == SEM_FAILED)  error_errno_exit("Opening semaphore used_sem failed.");
+  free_sem = sem_open(SEM_1, 0);
+  if(free_sem == SEM_FAILED)  error_errno_exit("Opening semaphore free_sem failed.");
 
-  used_sem = sem_open("11708475-used_sem", 0);
-  free_sem = sem_open("11708475-free_sem", 0);
-
- unsigned int solutionSize;
+  unsigned int solutionSize;
   while(myshm->state){
 	randperm(vertexAmount, vertices);
-  solutionSize = generateSolution(vertices, vertexAmount, initEdges, edgeAmount, solution.edges);
-  if(solutionSize == 9) continue; // a solution with more than 8 edges was found
-  solution.amount=solutionSize;
-  circ_buf_write(solution);
+	solutionSize = generateSolution(vertices, vertexAmount, initEdges, edgeAmount, solution.edges);
+	if(solutionSize == 9) continue; // a solution with more than 8 edges was found
+	solution.amount=solutionSize;
+	circ_buf_write(solution);
   }
-
-  //printEdges(solution.edges, solutionSize);
 
 
   // unmap shared memory:
-  if (munmap(myshm, sizeof(*myshm)) == -1){
-	fprintf(stderr, "ERROR in munmap\n");
-	exit(EXIT_FAILURE);
-	// error
-  }
-
+  if (munmap(myshm, sizeof(*myshm)) == -1)  error_errno_exit("cannot munmap shared memory.");
   //close(shm)
-  if (close(shmfd) == -1){
-	fprintf(stderr, "ERROR closing shmfd\n");
-	exit(EXIT_FAILURE);
-  }
-
-    //closing semaphores
-  if (sem_close(free_sem) == -1){
-	fprintf(stderr, "ERROR closing free_sem\n");
-	exit(EXIT_FAILURE);
-	//errno
-  }
-  if (sem_close(used_sem) == -1){
-	fprintf(stderr, "ERROR closing used_sem\n");
-	exit(EXIT_FAILURE);
-	//errno
-  }
+  if (close(shmfd) == -1)  error_errno_exit("cannot close shared memory.");
+  //closing semaphores
+  if (sem_close(free_sem) == -1)  error_errno_exit("cannot close free_sem semaphore.");
+  if (sem_close(used_sem) == -1)  error_errno_exit("cannot close used_sem semaphore.");
 }
