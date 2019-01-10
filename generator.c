@@ -21,16 +21,26 @@
  */
 
 #include "generator.h"
-#include "error.h"
+#include "error.h" /* provides error_exit() and error_errno_exit() */
 
 
 static int shmfd; /* file descriptor from shared memory */
 static struct myshm *myshm; /* pointer to shared memrory */
 
+/**
+ * @brief opens semaphores and shared memory used and maps the shared memory for current generator process
+ */
 static void allocate_resources(void);
 
+/**
+ * @brief unmaps shared memory, closes shared memory file descriptor and closes all opened semaphores
+ */
 static void free_resources(void);
 
+/**
+ * @brief writes feedback arc set into circular buffer. Two semaphores are used to track the used and free space
+ *   and wait for free space in case no space is left.
+*/
 static int circ_buf_write(edges, int);
 
 /**
@@ -102,7 +112,7 @@ int main(int argc, char ** argv)
   while(myshm->state == 1){
 	randperm(vertexAmount, vertices); // shuffles vertices
 	solutionSize = generateSolution(vertices, vertexAmount, initEdges, edgeAmount, solution.edges); // find valid feedback arc set
-	if(solutionSize == 9) continue; // a solution with more than 8 edges was found -> throw away
+	if(solutionSize == MAX_SOL_EDGES+1) continue; // a solution with more than 8 edges was found -> throw away
 	solution.amount=solutionSize; // writes amount of edges of current solution into edges struct solution
 	if(sem_wait(write_sem) == -1){
 	  if (errno == EINTR) // interrupted by signal?
