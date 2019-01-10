@@ -17,6 +17,7 @@ edges circ_buf_read() {
   edges val;
   val = buf[read_pos];
   //memcpy(&val, &buf[read_pos], sizeof(buf[read_pos]));
+  sem_post(free_sem); // reading frees up space
   read_pos = (read_pos + 1) % MAX_DATA;
   return val;
 }

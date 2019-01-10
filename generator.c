@@ -13,7 +13,8 @@ int write_pos = 0;
 void circ_buf_write(edges val) {
   sem_wait(free_sem); // writing requires free space
   buf[write_pos] = val;
-  sem_post(used_sem); // space is used by written data write_pos = (write_pos + 1) % BUF_LEN;
+  sem_post(used_sem); // space is used by written data
+  write_pos = (write_pos + 1) % MAX_DATA;
 }
 
 
@@ -32,7 +33,7 @@ int main(int argc, char ** argv)
 	default:
 	  break;
 	}
-  
+
   int shmfd = shm_open(SHM_NAME, O_RDWR, 0600);
   if (shmfd == -1){
 	fprintf(stderr, "ERROR int shm open.\n");
@@ -81,13 +82,14 @@ int main(int argc, char ** argv)
   unsigned int vertices[vertexAmount];
   //  memset(vertices, 0, sizeof(unsigned int)*vertexAmount);
   //printf("verticeamount: %d\n", vertexAmount);
-  randperm(vertexAmount, vertices);
+  
 
   used_sem = sem_open("11708475-used_sem", 0);
   free_sem = sem_open("11708475-free_sem", 0);
 
  unsigned int solutionSize;
   while(myshm->state){
+	randperm(vertexAmount, vertices);
   solutionSize = generateSolution(vertices, vertexAmount, initEdges, edgeAmount, solution.edges);
   if(solutionSize == 9) continue; // a solution with more than 8 edges was found
   solution.amount=solutionSize;
