@@ -25,7 +25,7 @@ struct myshm {
   unsigned int edgeAmount;
   edges data[MAX_DATA];
   int write_pos;
-  int generatorAmount;
+  //int generatorAmount;
 };
 
 //circular buffer
@@ -36,8 +36,3 @@ sem_t *free_sem, // tracks free space, initialized to BUF_LEN
 // for write mutex
 sem_t *write_sem;
 
-//for terminating
-// every generator process increases at start the value of this sem.
-// supervisor terminates only if value reached 0 - removing shm before that
-// would result in generators not terminating
-sem_t *alive_sem;
