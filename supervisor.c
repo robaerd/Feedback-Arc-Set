@@ -33,7 +33,7 @@ static void handle_signal(int);
 /**
  * @brief prints a feedback arc set solution to stdout in the following form: v1-u1 v2-u2 ...
  */
-static void printEdges(edge *, int);
+static void printEdges(edges);
 
 /**
  * @brief reads next position in circular buffer if solution exists in circular buffer.
@@ -49,7 +49,7 @@ static void allocate_resources(void);
 
 /**
  * @brief sets state variable in shm to 0 -> all generators will terminate after they finished current task.
-          Unmaps, closes and unlinks shared memory. Closes and unlinks all semaphores created previously.
+ *        Unmaps, closes and unlinks shared memory. Closes and unlinks all semaphores created previously.
  */
 static void free_resources(void);
 
@@ -66,7 +66,7 @@ int main(int argc, char **argv)
 
   /* all resources (sem and shm) are being freed on every program exit (error and normal), also the generators will terminate after exit */
   if (atexit(free_resources) != 0) error_exit("atexit: register function free_ressources.");
-    
+
   allocate_resources(); /* allocates (creates) semaphores and shared memory */
 
   //initialize circular buffer where each edge has the initial value 0-0
@@ -91,7 +91,8 @@ int main(int argc, char **argv)
   sigaction(SIGINT, &sa, NULL);
   sigaction(SIGTERM, &sa, NULL);
 
-  sem_post(write_sem); /* all resources initialized - generators may now write into the buffer */
+  /* all resources initialized - generators may now write into the buffer */
+  if(sem_post(write_sem) == -1) error_errno_exit("incrementing write_sem");
 
   /* reads and prints the best solution (minimal feedback arc set) from circular buffer, as long as no SIGINT or SIGTERM is provided */
   while(!quit){
@@ -103,7 +104,7 @@ int main(int argc, char **argv)
 	  break;
 	} else if(temp.amount < myshm->edgeAmount){ // if the edge amount in the solution is smaller than the previos solution
 	  myshm->edgeAmount = temp.amount;          // -> remember smaller edgeamount and print current solution to stdout
-	  printEdges(temp.edges, temp.amount);
+	  printEdges(temp);
 	}
   }
   exit(EXIT_SUCCESS);
@@ -111,12 +112,13 @@ int main(int argc, char **argv)
 
 
 /**
- * @brief sets global volatile quit var to 1 if SIGINT or SIGTERM received -> normal process termination
+ * @brief sets global volatile quit var to 1 if SIGINT or SIGTERM received and prints kind of signal-> normal process termination
  * @param signal received signal
  */
 void handle_signal(int signal)
 {
   quit = 1;
+  printf("Interrupted by signal: %s\n", strsignal(signal));
 }
 
 /**
@@ -129,7 +131,7 @@ void allocate_resources(void)
 
   // set the size of the shared memory:
   if (ftruncate(shmfd, sizeof(struct myshm)) < 0)  error_errno_exit("cannot resize shared memory.");
-    
+
   // map shared memory object:
   myshm = mmap(NULL, sizeof(*myshm), PROT_READ | PROT_WRITE, // need write to initialize all edges
 			   MAP_SHARED, shmfd, 0);
@@ -147,8 +149,8 @@ void allocate_resources(void)
 
 /**
  * @brief sets state variable in shm to 0 -> all generators will terminate after they finished current task.
-          Unmaps, closes and unlinks shared memory. Closes and unlinks all semaphores created previously.
- */
+ *       Unmaps, closes and unlinks shared memory. Closes and unlinks all semaphores created previously.
+*/
 void free_resources(void)
 {
   myshm->state = 0; // setting state variable to 0 so all generators leave while loop
@@ -185,22 +187,21 @@ edges circ_buf_read(void)
   }
   edges val;
   val = buf[read_pos];
-  sem_post(free_sem); // reading frees up space
+  if(sem_post(free_sem) == -1) error_errno_exit("incrementing free_sem");
   read_pos = (read_pos + 1) % MAX_DATA;
   return val;
 }
 
 /**
  * @brief prints a feedback arc set solution to stdout in the following form: v1-u1 v2-u2 ...
- * @param Edges edge array which should be printed to stdout
- * @param amount of provided edges
+ * @param edges feedback arc set solution containing the edges and the edge amount
  */
-void printEdges(edge *Edges, int edgeAmount)
+void printEdges(edges solution)
 {
-  int i;
-  printf("Solution with %d edges: ", edgeAmount);
-  for (i = 0; i < edgeAmount; i++){
-	printf("%d-%d ", Edges[i].v, Edges[i].u);
+  unsigned int i;
+  printf("Solution with %d edges: ", solution.amount);
+  for (i = 0; i < solution.amount; i++){
+	printf("%d-%d ", solution.edges[i].v, solution.edges[i].u);
   }
   printf("\n");
 }

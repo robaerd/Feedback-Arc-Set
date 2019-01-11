@@ -26,6 +26,7 @@
 
 static int shmfd; /* file descriptor from shared memory */
 static struct myshm *myshm; /* pointer to shared memrory */
+static int in_critical_section = 0; /* if equals 1 prcoess is in critical section-> for incrementing sem if error */
 
 /**
  * @brief opens semaphores and shared memory used and maps the shared memory for current generator process
@@ -40,7 +41,7 @@ static void free_resources(void);
 /**
  * @brief writes feedback arc set into circular buffer. Two semaphores are used to track the used and free space
  *   and wait for free space in case no space is left.
-*/
+ */
 static int circ_buf_write(edges, int);
 
 /**
@@ -72,7 +73,7 @@ int main(int argc, char ** argv)
 	default:
 	  break;
 	}
-    
+
   /* all resources (sem and shm) are being freed on every program exit (error and normal) */
   if (atexit(free_resources) != 0) error_exit("atexit: register function free_ressources.");
 
@@ -89,6 +90,7 @@ int main(int argc, char ** argv)
      also determines vertice amount and edge amount */
   int optI = optind;
   edgeAmount = argc - optI;
+  if(edgeAmount == 1) error_exit("not a valid graph. at least on edge must be providen");  // at least one edge must be provided
   edge initEdges[edgeAmount];
   if(optI < argc){
 	int i;
@@ -108,20 +110,23 @@ int main(int argc, char ** argv)
   unsigned int solutionSize; /* edge amount from determined feedback arc set */
 
   /* as long as state not changed from supervisor, determines valid feedback arc sets with size < 8
-       and writes them into circular buffer */
+	 and writes them into circular buffer */
   while(myshm->state == 1){
 	randperm(vertexAmount, vertices); // shuffles vertices
 	solutionSize = generateSolution(vertices, vertexAmount, initEdges, edgeAmount, solution.edges); // find valid feedback arc set
 	if(solutionSize == MAX_SOL_EDGES+1) continue; // a solution with more than 8 edges was found -> throw away
 	solution.amount=solutionSize; // writes amount of edges of current solution into edges struct solution
 	if(sem_wait(write_sem) == -1){
+	  in_critical_section = 1; //in critical section;
 	  if (errno == EINTR) // interrupted by signal?
 		continue;
 	  error_errno_exit("waiting for write_sem");
 	}
 	myshm->write_pos = circ_buf_write(solution, myshm->write_pos); /* write found set into circular buffer */
+	in_critical_section = 0;
 	if(sem_post(write_sem) == -1) error_errno_exit("incrementing write_sem");
   }
+  //if(sem_post(write_sem) == -1) error_errno_exit("incrementing write_sem"); // increment write semaphore to prevent deadlock when terminating all generators
 
   exit(EXIT_SUCCESS);
 }
@@ -134,7 +139,7 @@ void allocate_resources(void)
   shmfd = shm_open(SHM_NAME, O_RDWR, 0600);
   if (shmfd == -1)  error_errno_exit("cannot open shared memory.");
 
-  myshm = mmap(NULL, sizeof(*myshm), PROT_READ | PROT_WRITE,
+  myshm = mmap(NULL, sizeof(*myshm), PROT_WRITE,
 			   MAP_SHARED, shmfd, 0);
 
   if (myshm == MAP_FAILED)  error_errno_exit("cannot map shared memory.");
@@ -152,6 +157,10 @@ void allocate_resources(void)
  */
 void free_resources(void)
 {
+
+  if(in_critical_section)
+	if(sem_post(write_sem) == -1) // only incremented if generator was interuppted during his critical section
+	  error_errno_exit("incrementing write_sem");
   // unmap shared memory
   if (munmap(myshm, sizeof(*myshm)) == -1)  error_errno_exit("cannot munmap shared memory.");
   //close shared memory
@@ -171,8 +180,12 @@ void free_resources(void)
  */
 int circ_buf_write(edges val, int pos)
 {
-  sem_wait(free_sem); // writing requires free space
+  if(sem_wait(free_sem) == -1){  // writing requires free space
+	  if (errno == EINTR) // interrupted by signal?
+		exit(EXIT_SUCCESS);
+	  error_errno_exit("waiting for free_sem");
+	}
   buf[pos] = val;
-  sem_post(used_sem); // space is used by written data
+  if(sem_post(used_sem) == -1) error_errno_exit("incrementing used_sem"); // space is used by written data
   return (pos + 1) % MAX_DATA;
 }
