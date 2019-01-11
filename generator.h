@@ -21,7 +21,7 @@
 #include <semaphore.h>
 #include <time.h>
 
-#include "circularBuffer.h" //is needed for constants
+#include "circularBuffer.h"
 
 /**
  * @brief shuffles provided vertices

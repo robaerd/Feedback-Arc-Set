@@ -1,3 +1,11 @@
+/**
+ * @file supervisor.h
+ * @author Robert Sowula <e11708475@student.tuwien.ac.at>
+ * @date 09.01.19
+ *
+ * @brief provide all necessary header files for superivsor.h
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
