@@ -107,6 +107,11 @@ int main(int argc, char **argv)
 	  printEdges(temp);
 	}
   }
+
+  /* free_sem deadlock prevention */
+  int i;
+  for(i = 0; i < 500; i++)
+	sem_post(free_sem);
   exit(EXIT_SUCCESS);
 }
 

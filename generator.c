@@ -27,6 +27,7 @@
 static int shmfd; /* file descriptor from shared memory */
 static struct myshm *myshm; /* pointer to shared memrory */
 static int in_critical_section = 0; /* if equals 1 prcoess is in critical section-> for incrementing sem if error */
+volatile sig_atomic_t quit = 0;
 
 /**
  * @brief opens semaphores and shared memory used and maps the shared memory for current generator process
@@ -43,6 +44,11 @@ static void free_resources(void);
  *   and wait for free space in case no space is left.
  */
 static int circ_buf_write(edges, int);
+
+/**
+ * @brief sets global volatile quit var to 1 if SIGINT or SIGTERM received -> normal process termination
+ */
+static void handle_signal(int);
 
 /**
  * First checks if only positional arguments are provided.
@@ -86,8 +92,15 @@ int main(int argc, char ** argv)
   clock_gettime(CLOCK_MONOTONIC, &ts);
   srand((time_t)ts.tv_nsec); // using nano-seconds for uniformer distribution
 
+  /* signal handling for deadlock prevention if generator is stuck in waiting during termination */
+  struct sigaction sa;
+  memset(&sa, 0, sizeof(sa));
+  sa.sa_handler = handle_signal;
+  sigaction(SIGINT, &sa, NULL);
+  sigaction(SIGTERM, &sa, NULL);
+
   /* extracts edges provided as positional arguments into edge struct array.
-     also determines vertice amount and edge amount */
+	 also determines vertice amount and edge amount */
   int optI = optind;
   edgeAmount = argc - optI;
   if(edgeAmount == 1) error_exit("not a valid graph. at least on edge must be providen");  // at least one edge must be provided
@@ -111,7 +124,7 @@ int main(int argc, char ** argv)
 
   /* as long as state not changed from supervisor, determines valid feedback arc sets with size < 8
 	 and writes them into circular buffer */
-  while(myshm->state == 1){
+  while(myshm->state == 1 && !quit){
 	randperm(vertexAmount, vertices); // shuffles vertices
 	solutionSize = generateSolution(vertices, vertexAmount, initEdges, edgeAmount, solution.edges); // find valid feedback arc set
 	if(solutionSize == MAX_SOL_EDGES+1) continue; // a solution with more than 8 edges was found -> throw away
@@ -188,4 +201,15 @@ int circ_buf_write(edges val, int pos)
   buf[pos] = val;
   if(sem_post(used_sem) == -1) error_errno_exit("incrementing used_sem"); // space is used by written data
   return (pos + 1) % MAX_DATA;
+}
+
+
+/**
+ * @brief sets global volatile quit var to 1 if SIGINT or SIGTERM received and prints kind of signal-> normal process termination
+ * @param signal received signal
+ */
+void handle_signal(int signal)
+{
+  quit = 1;
+  printf("Interrupted by signal: %s\n", strsignal(signal));
 }
